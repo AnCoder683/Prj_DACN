@@ -1,0 +1,18 @@
+﻿{% macro render_event_row(e) %}
+<tr data-reminded="{{ e[6] }}">
+    <td>{{ e[0] }}</td>
+    <td>{{ e[1] }}</td>
+    <td class="start-time">{{ e[2] }}</td>
+    <td>{{ e[3] }} phút</td>
+    <td>{{ e[4] }}</td>
+    <td>
+        <input type="checkbox" class="complete-checkbox"
+               data-id="{{ e[0] }}"
+               {{ 'checked' if e[5] else '' }}>
+    </td>
+    <td class="btn-group">
+        <button clas onclick="openEditPopup('{{ e[0] }}')">Sửa</button>
+        <a href="/event/delete/{{ e[0] }}" onclick="return confirm('Xoá?')">Xoá</a>
+    </td>
+</tr>
+{% endmacro %}

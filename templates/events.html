@@ -1,0 +1,28 @@
+﻿{% extends "base.html" %}
+{% from "_table_macros.html" import render_event_row %}
+
+{% block content %}
+<h2>Danh sách sự kiện</h2>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sự kiện</th>
+                <th data-sort="start" style="cursor:pointer;">Bắt đầu ▲▼</th>
+                <th>Nhắc trước</th>
+                <th>Địa điểm</th>
+                <th data-sort="done" style="cursor:pointer;">Hoàn thành ▲▼</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for e in events %}
+                {{ render_event_row(e) }}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

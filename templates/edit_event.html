@@ -1,0 +1,30 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<h2>Sửa sự kiện</h2>
+
+<form method="POST">
+
+    <label>Sự kiện</label>
+    <input type="text" name="event" value="{{ event[1] }}" required>
+
+    <label>Thời gian</label>
+    <input type="text" name="start_time" value="{{ event[2] }}" required>
+
+    <label>End time</label>
+    <input type="text" name="end_time" value="{{ event[3] or '' }}">
+
+    <label>Địa điểm</label>
+    <input type="text" name="location" value="{{ event[4] or '' }}">
+
+    <label>Nhắc trước (phút)</label>
+    <input type="number" name="reminder_minutes" value="{{ event[5] or 0 }}">
+
+    <br><br>
+    <button type="submit">Lưu</button>
+</form>
+
+<br>
+<a href="/events">← Quay lại</a>
+
+{% endblock %}

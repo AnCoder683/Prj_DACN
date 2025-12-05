@@ -1,0 +1,62 @@
+﻿{% extends "base.html" %}
+{% from "_table_macros.html" import render_event_row %}
+
+{% block content %}
+
+<form action="/search-advanced" method="get" class="advanced-form">
+
+    <div class="search-container">
+        <div class="search-box">
+            <label>Địa điểm</label>
+            <input type="text" name="location" placeholder="Ví dụ: phòng họp A">
+        </div>
+
+        <div class="search-box">
+            <label>Từ khoá</label>
+            <input type="text" name="keyword" placeholder="Tìm theo nội dung sự kiện...">
+        </div>
+    </div>
+
+    <div class="date-box">
+        <div>
+            <label>Ngày bắt đầu</label>
+            <input type="date" name="start_date">
+        </div>
+        <div>
+            <label>Ngày kết thúc</label>
+            <input type="date" name="end_date">
+        </div>
+    </div>
+
+    <button type="submit">Tìm kiếm</button>
+</form>
+
+<hr>
+
+{% if events %}
+<h3>Kết quả:</h3>
+
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Sự kiện</th>
+                <th data-sort="start" style="cursor:pointer;">Bắt đầu ▲▼</th>
+                <th>Nhắc</th>
+                <th>Địa điểm</th>
+                <th data-sort="done" style="cursor:pointer;">Hoàn thành ▲▼</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for e in events %}
+                {{ render_event_row(e) }}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

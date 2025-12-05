@@ -1,0 +1,368 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>NLP Scheduler</title>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:,"> <!-- Ngăn lỗi favicon -->
+</head>
+
+<body>
+
+<!-- ========================= HEADER ========================= -->
+<div class="header">
+    <div class="header-left">
+        <span class="logo">📅 NLP Scheduler</span>
+    </div>
+
+    <div class="header-search">
+        <form action="/search-advanced" method="get">
+            <input type="text" name="keyword" placeholder="Tìm kiếm theo nội dung sự kiện...">
+        </form>
+    </div>
+
+    <div class="header-right">
+        <button id="changeSoundBtn" type="button" class="nav-btn">Đổi âm</button>
+        <input type="file" id="soundPicker" accept="audio/*" style="display:none">
+        <a href="/" class="nav-btn">Thêm</a>
+    </div>
+</div>
+
+
+<!-- ========================= LAYOUT ========================= -->
+<div class="layout">
+
+    <div class="sidebar">
+        <a href="/" class="sidebar-item">Thêm sự kiện</a>
+        <a href="/events" class="sidebar-item">Sự kiện tiếp theo</a>
+        <a href="/search-advanced" class="sidebar-item">Tìm kiếm chi tiết</a>
+
+
+        <a type="button" class="sidebar-item" onclick="exportJSON()">
+            Xuất JSON
+        </a>
+
+        <label class="sidebar-item" style="cursor:pointer; border-bottom: 2px solid #f0f0f0;;">
+            Nhập JSON
+            <input type="file" id="importJSON" accept="application/json" style="display:none">
+        </label>
+    </div>
+
+
+
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+</div>
+
+
+<!-- ========================= EDIT POPUP FORM ========================= -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span id="closeModal" class="close-btn">&times;</span>
+        <h3>Sửa sự kiện</h3>
+
+        <form id="editForm" method="POST">
+            <input type="hidden" name="id" id="edit_id">
+
+            <label>Sự kiện</label>
+            <input type="text" name="event" id="edit_event">
+
+            <label>Bắt đầu</label>
+            <input type="text" name="start_time" id="edit_start">
+
+            <label>Kết thúc</label>
+            <input type="text" name="end_time" id="edit_end">
+
+            <label>Địa điểm</label>
+            <input type="text" name="location" id="edit_location">
+
+            <label>Nhắc trước (phút)</label>
+            <input type="number" name="reminder_minutes" id="edit_reminder">
+
+            <button type="submit">Lưu</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditPopup(id) {
+    fetch(`/api/event/${id}`)
+    .then(r => r.json())
+    .then(ev => {
+        edit_id.value = ev.id;
+        edit_event.value = ev.event;
+        edit_start.value = ev.start_time;
+        edit_end.value = ev.end_time || "";
+        edit_location.value = ev.location || "";
+        edit_reminder.value = ev.reminder_minutes || 0;
+
+        editForm.action = `/event/edit/${ev.id}`;
+        editModal.style.display = "block";
+    });
+}
+
+closeModal.onclick = () => editModal.style.display = "none";
+window.onclick = e => { if (e.target === editModal) editModal.style.display = "none"; };
+</script>
+
+
+<!-- ========================= SORT TABLE ========================= -->
+<script>
+document.addEventListener("click", e => {
+    if (!e.target.matches("[data-sort]")) return;
+
+    const tbody = document.querySelector("tbody");
+    if (!tbody) return;
+
+    const sortType = e.target.dataset.sort;
+    const asc = e.target.dataset.asc === "1" ? false : true;
+    e.target.dataset.asc = asc ? "1" : "0";
+
+    const rows = [...tbody.querySelectorAll("tr")];
+
+    rows.sort((a, b) => {
+        if (sortType === "start") {
+            return asc
+                ? new Date(a.querySelector(".start-time").innerText) - new Date(b.querySelector(".start-time").innerText)
+                : new Date(b.querySelector(".start-time").innerText) - new Date(a.querySelector(".start-time").innerText);
+        }
+
+        if (sortType === "done") {
+            return asc
+                ? a.querySelector(".complete-checkbox").checked - b.querySelector(".complete-checkbox").checked
+                : b.querySelector(".complete-checkbox").checked - a.querySelector(".complete-checkbox").checked;
+        }
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+});
+</script>
+
+<script>
+function exportJSON() {
+    fetch("/export/json")
+    .then(r => r.json())
+    .then(data => {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "scheduler_export.json";
+        a.click();
+
+        URL.revokeObjectURL(url);
+    });
+}
+
+document.getElementById("importJSON").onchange = function() {
+    const file = this.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/import/json", {
+        method:"POST",
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === "ok") {
+            alert("Nhập dữ liệu thành công!");
+            location.reload();
+        } else {
+            alert("Có lỗi: " + res.message);
+        }
+    });
+};
+</script>
+
+
+<!-- ========================= REALTIME ENGINE ========================= -->
+<script>
+
+let notifySound = new Audio("/static/alarm.mp3");
+notifySound.volume = 1.0;
+
+// Load custom sound
+if (localStorage.getItem("customSound"))
+    notifySound.src = localStorage.getItem("customSound");
+
+// Unlock browser audio autoplay
+document.addEventListener("click", () => {
+    notifySound.play().then(()=>{ notifySound.pause(); notifySound.currentTime = 0; });
+}, { once:true });
+
+// Change sound button
+changeSoundBtn.onclick = () => soundPicker.click();
+
+soundPicker.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = evt => {
+        const base64 = evt.target.result;
+        localStorage.setItem("customSound", base64);
+        notifySound.src = base64;
+
+        alert("Âm thông báo đã được thay đổi!");
+    };
+    reader.readAsDataURL(file);
+};
+
+
+function stopSound() {
+    notifySound.pause();
+    notifySound.currentTime = 0;
+}
+
+
+function applyCheckboxListeners() {
+    document.querySelectorAll(".complete-checkbox").forEach(cb => {
+        cb.onchange = function() {
+            const id = this.dataset.id;
+            const val = this.checked ? 1 : 0;
+
+            fetch(`/api/event/complete/${id}`, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                body:JSON.stringify({ complete: val })
+            });
+
+            if (val === 1) this.closest("tr").style.background = "#d4ffd4";
+        };
+    });
+}
+
+
+function highlightUpcoming() {
+    const now = new Date();
+    const rows = document.querySelectorAll("tbody tr");
+
+    rows.forEach(row => {
+        if (row.querySelector(".complete-checkbox")?.checked) {
+            row.style.background = "#d4ffd4";
+            return;
+        }
+
+        const startTxt = row.querySelector(".start-time")?.innerText;
+        if (!startTxt) return;
+
+        const diffMin = (new Date(startTxt) - now) / 60000;
+
+        row.style.background = "";
+        if (diffMin <= 0) row.style.background = "#ffdbdb";
+        else if (diffMin <= 10) row.style.background = "#fff3cd";
+    });
+}
+
+
+function checkRemindersFromDOM() {
+    const now = new Date();
+    const rows = document.querySelectorAll("tbody tr");
+
+    rows.forEach(row => {
+        const remindedDB = parseInt(row.dataset.reminded);
+        const isCompleted = row.querySelector(".complete-checkbox").checked;
+        if (isCompleted || remindedDB === 1) return;
+
+        const id = row.children[0].innerText;
+        const eventName = row.children[1].innerText;
+        const start = new Date(row.querySelector(".start-time").innerText);
+        const reminderTxt = row.children[3].innerText.replace(" phút","");
+        const reminderMin = parseInt(reminderTxt) || 0;
+        const location = row.children[4].innerText;
+
+        const remindAt = new Date(start.getTime() - reminderMin * 60000);
+
+        if (remindAt <= now) {
+            notifySound.currentTime = 0;
+            notifySound.play().catch(()=>{});
+
+            showReminderPopup(eventName, start.toLocaleString(), location);
+
+            fetch(`/api/event/reminded/${id}`, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                body:JSON.stringify({ reminded: 1 })
+            }).then(() => {
+                row.dataset.reminded = "1";
+            });
+        }
+    });
+}
+
+
+function showReminderPopup(eventName, start, location) {
+    const box = document.createElement("div");
+    box.className = "popup-reminder";
+    box.style.position = "fixed";
+    box.style.top = "20px";
+    box.style.left = "50%";
+    box.style.transform = "translateX(-50%)";
+    box.style.background = "#fff7da";
+    box.style.padding = "18px 22px";
+    box.style.border = "1px solid #e0a200";
+    box.style.borderRadius = "8px";
+    box.style.zIndex = 9999;
+    box.style.boxShadow = "0 2px 10px rgba(0,0,0,.15)";
+
+    box.innerHTML = `
+        🔔 <b>${eventName}</b><br>
+        Bắt đầu: ${start}<br>
+        Địa điểm: ${location || "Không có"}<br>
+        <button id="popup-close-btn" style="
+            margin-top: 10px;
+            padding: 6px 14px;
+            border: none;
+            background: #be4160;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        ">Đóng ❌</button>
+    `;
+
+    document.body.appendChild(box);
+
+    box.querySelector("#popup-close-btn").onclick = () => {
+        stopSound();
+        box.remove();
+    };
+}
+
+
+function reloadEventsTable() {
+    if (!location.pathname.includes("/events")) return;
+
+    fetch("/events")
+    .then(r => r.text())
+    .then(html => {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const newBody = doc.querySelector("tbody");
+        const curBody = document.querySelector("tbody");
+
+        if (newBody && curBody) {
+            curBody.innerHTML = newBody.innerHTML;
+
+            applyCheckboxListeners();
+            highlightUpcoming();
+            checkRemindersFromDOM();
+        }
+    });
+}
+
+applyCheckboxListeners();
+highlightUpcoming();
+checkRemindersFromDOM();
+
+setInterval(reloadEventsTable, 3000);
+</script>
+
+</body>
+</html>

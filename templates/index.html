@@ -1,0 +1,12 @@
+﻿{% extends "base.html" %}
+
+{% block content %}
+<h2>Thêm sự kiện bằng tiếng Việt</h2>
+
+<form class="add-event" method="POST">
+    <textarea name="text_input" placeholder="Nhập lời nhắc như: 'Gặp khách lúc 3h chiều mai'..." required></textarea>
+    <br><br>
+    <button type="submit">Thêm sự kiện</button>
+</form>
+
+{% endblock %}
