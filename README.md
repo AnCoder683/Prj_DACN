@@ -1,3 +1,5 @@
+Link Video DEMO: https://drive.google.com/file/d/1Pp-L-mN10qoi1pI5KbYdOusut_0bKMKF/view
+
 NLP Scheduler – Ứng dụng quản lý lịch trình bằng tiếng Việt
 Dự án xây dựng một hệ thống quản lý sự kiện cá nhân kết hợp mô-đun NLP tiếng Việt, cho phép người dùng tạo sự kiện bằng câu lệnh tự nhiên như:
 “họp nhóm lúc 7h tối mai ở quán cà phê, nhắc trước 10 phút”
